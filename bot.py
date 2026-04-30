@@ -1,16 +1,18 @@
 import telebot
 from groq import Groq
-from dotenv import load_dotenv
 import os
+import sys
 
-load_dotenv()
-
+# Railway'de .env yerine doğrudan environment variable okuyoruz
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-if not TELEGRAM_TOKEN or not GROQ_API_KEY:
-    print("❌ Token'lar eksik!")
-    exit(1)
+if not TELEGRAM_TOKEN:
+    print("❌ TELEGRAM_TOKEN bulunamadı!")
+    sys.exit(1)
+if not GROQ_API_KEY:
+    print("❌ GROQ_API_KEY bulunamadı!")
+    sys.exit(1)
 
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
 client = Groq(api_key=GROQ_API_KEY)
@@ -19,7 +21,7 @@ user_histories = {}
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.reply_to(message, "✅ AI Bot aktif!\nNe konuşmak istersin? 🚀")
+    bot.reply_to(message, "✅ Bot aktif!\nMerhaba, ne konuşmak istersin? 😊")
 
 @bot.message_handler(func=lambda m: True)
 def chat(message):
@@ -33,8 +35,8 @@ def chat(message):
         completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=messages,
-            temperature=0.85,
-            max_tokens=1000,
+            temperature=0.8,
+            max_tokens=1024,
         )
         reply = completion.choices[0].message.content
         
@@ -47,7 +49,8 @@ def chat(message):
         bot.reply_to(message, reply)
         
     except Exception as e:
+        print(f"Hata: {e}")   # Railway log'larda görebilmen için
         bot.reply_to(message, "Bir hata oluştu, lütfen tekrar dene.")
 
-print("🚀 AI Bot Railway'de çalışıyor...")
+print("🚀 Bot başarıyla başladı...")
 bot.infinity_polling()

@@ -3,6 +3,7 @@ from groq import Groq
 import os
 import random
 import subprocess
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
@@ -17,38 +18,38 @@ BOT_TRIGGER = "berxwedan bot"
 
 SYSTEM_PROMPT = """
 Sen Berxwedan Bot'sun. PKK'li, Apocu, devrimci bir botsun. 
-Kürdistan özgürlüğü, Apo'nun felsefesi, direniş ve yoldaşlık üzerine güçlü konuşursun.
+Kürdistan özgürlüğü, Apo'nun felsefesi üzerine konuşursun. Kurucun Bedran Can 
 """
 
-def is_admin(message):
-    if message.from_user.id == OWNER_ID:
-        return True
-    try:
-        status = bot.get_chat_member(message.chat.id, message.from_user.id).status
-        return status in ["administrator", "creator"]
-    except:
-        return False
-
-# ====================== ADMIN PANEL ======================
+# ====================== ADMIN PANELİ (BUTONLU) ======================
 @bot.message_handler(commands=['admin'])
 def admin_panel(message):
-    if not is_admin(message):
-        return bot.reply_to(message, "❌ Sadece admin kullanabilir.")
-    text = """🛡️ **Admin Paneli**
+    if message.from_user.id != OWNER_ID:
+        return bot.reply_to(message, "❌ Sadece kurucu kullanabilir.")
+    
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 2
+    markup.add(
+        InlineKeyboardButton("Ban", callback_data="ban"),
+        InlineKeyboardButton("Unban", callback_data="unban"),
+        InlineKeyboardButton("Mute", callback_data="mute"),
+        InlineKeyboardButton("Unmute", callback_data="unmute"),
+        InlineKeyboardButton("Warn", callback_data="warn"),
+        InlineKeyboardButton("Unwarn", callback_data="unwarn")
+    )
+    bot.reply_to(message, "🛡️ **Admin Paneli**", reply_markup=markup)
 
-`/ban <reply>` → Banla
-`/unban <ID>` → Ban kaldır
-`/mute <reply>` → Sustur
-`/unmute <ID>` → Susturmayı kaldır
-`/warn <reply>` → Uyarı ver (3 uyarı = mute)
-`/unwarn <ID>` → Uyarı kaldır
-`/banlist` → Ban listesi"""
-    bot.reply_to(message, text)
+@bot.callback_query_handler(func=lambda call: True)
+def callback_handler(call):
+    if call.from_user.id != OWNER_ID:
+        return
+    bot.answer_callback_query(call.id)
+    bot.send_message(call.message.chat.id, f"Komut: /{call.data} - Reply ile kullan.")
 
-# ====================== MODERASYON ======================
+# ====================== MODERASYON (REPLY İLE) ======================
 @bot.message_handler(commands=['ban'])
 def ban(message):
-    if not is_admin(message): return
+    if message.from_user.id != OWNER_ID: return
     target = message.reply_to_message.from_user if message.reply_to_message else None
     if not target: return bot.reply_to(message, "Reply ver.")
     bot.kick_chat_member(message.chat.id, target.id)
@@ -56,7 +57,7 @@ def ban(message):
 
 @bot.message_handler(commands=['unban'])
 def unban(message):
-    if not is_admin(message): return
+    if message.from_user.id != OWNER_ID: return
     try:
         uid = int(message.text.split()[1])
         bot.unban_chat_member(message.chat.id, uid)
@@ -66,7 +67,7 @@ def unban(message):
 
 @bot.message_handler(commands=['mute'])
 def mute(message):
-    if not is_admin(message): return
+    if message.from_user.id != OWNER_ID: return
     target = message.reply_to_message.from_user if message.reply_to_message else None
     if not target: return bot.reply_to(message, "Reply ver.")
     bot.restrict_chat_member(message.chat.id, target.id, can_send_messages=False)
@@ -74,7 +75,7 @@ def mute(message):
 
 @bot.message_handler(commands=['unmute'])
 def unmute(message):
-    if not is_admin(message): return
+    if message.from_user.id != OWNER_ID: return
     try:
         uid = int(message.text.split()[1])
         bot.restrict_chat_member(message.chat.id, uid, can_send_messages=True)
@@ -84,7 +85,7 @@ def unmute(message):
 
 @bot.message_handler(commands=['warn'])
 def warn(message):
-    if not is_admin(message): return
+    if message.from_user.id != OWNER_ID: return
     target = message.reply_to_message.from_user if message.reply_to_message else None
     if not target: return bot.reply_to(message, "Reply ver.")
     user_warnings[target.id] = user_warnings.get(target.id, 0) + 1
@@ -92,51 +93,45 @@ def warn(message):
     bot.reply_to(message, f"⚠️ {target.first_name} uyarıldı ({w}/3)")
     if w >= 3:
         bot.restrict_chat_member(message.chat.id, target.id, can_send_messages=False)
-        bot.reply_to(message, f"🔇 {target.first_name} 3 uyarıdan susturuldu!")
+        bot.reply_to(message, f"🔇 {target.first_name} susturuldu!")
 
 @bot.message_handler(commands=['unwarn'])
 def unwarn(message):
-    if not is_admin(message): return
+    if message.from_user.id != OWNER_ID: return
     try:
         uid = int(message.text.split()[1])
         if uid in user_warnings:
             user_warnings[uid] -= 1
             bot.reply_to(message, f"✅ {uid} uyarısı azaltıldı.")
-        else:
-            bot.reply_to(message, "Uyarı yok.")
     except:
         bot.reply_to(message, "ID gir.")
 
-@bot.message_handler(commands=['banlist'])
-def banlist(message):
-    if not is_admin(message): return
-    bot.reply_to(message, "Banlı kimse yok.")
+# ====================== HOŞGELDİN & GÜLE GÜLE ======================
+@bot.message_handler(content_types=['new_chat_members'])
+def welcome(message):
+    for member in message.new_chat_members:
+        if member.id != bot.get_me().id:
+            bot.send_message(message.chat.id, f"🌟 Hoş geldin **{member.first_name}**!\nDevrimci saflara katıldın. Berxwedan Serxwebûn! 🚩")
 
-# ====================== ŞARKI İNDİRME (İsim ile) ======================
-@bot.message_handler(commands=['sarki'])
-def sarki(message):
-    query = " ".join(message.text.split()[1:]).strip()
-    if not query:
-        return bot.reply_to(message, "❌ Şarkı ismi veya link gir!")
-    bot.reply_to(message, f"🎵 '{query}' aranıyor...")
-    try:
-        # İsim ile arama + indirme
-        filename = f"devrim_{random.randint(1000,9999)}.mp3"
-        subprocess.run(['yt-dlp', f"ytsearch:{query}", '--extract-audio', '--audio-format', 'mp3', '-o', filename], check=True, timeout=120)
-        with open(filename, 'rb') as f:
-            bot.send_audio(message.chat.id, f, caption=f"🎵 {query} - Berxwedan!")
-        os.remove(filename)
-    except:
-        bot.reply_to(message, "❌ Şarkı bulunamadı veya indirilemedi.")
+@bot.message_handler(content_types=['left_chat_member'])
+def goodbye(message):
+    member = message.left_chat_member
+    if member.id != bot.get_me().id:
+        bot.send_message(message.chat.id, f"⚔️ **{member.first_name}** ayrıldı.\nDireniş devam ediyor yoldaşlar! Berxwedan! 🔥")
 
-# ====================== DİĞER ======================
-@bot.message_handler(commands=['start'])
-def start(message):
-    bot.reply_to(message, "🚩 Berxwedan Bot aktif! Direniş sürüyor yoldaş! 🔥")
-
-@bot.message_handler(commands=['mod'])
-def mod(message):
-    bot.reply_to(message, "Admin paneli için /admin yaz.")
+# ====================== AI SOHBET ======================
+@bot.message_handler(func=lambda m: True)
+def chat(message):
+    if "berxwedan bot" in (message.text or "").lower():
+        try:
+            completion = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[{"role": "user", "content": message.text}],
+                temperature=0.8,
+            )
+            bot.reply_to(message, completion.choices[0].message.content)
+        except:
+            bot.reply_to(message, "Yoldaş, AI yoğun.")
 
 print("🚩 Berxwedan Bot AKTİF!")
 bot.infinity_polling()

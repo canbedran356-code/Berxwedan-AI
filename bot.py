@@ -65,23 +65,24 @@ def get_target(message):
         except:
             return None
     return None
-
-# ====================== AI RESİM ======================
+# ====================== GERÇEK AI RESİM (Pollinations.ai) ======================
 @bot.message_handler(commands=['airesim'])
 def generate_image(message):
-    prompt = " ".join(message.text.split()[1:]) if len(message.text.split()) > 1 else "Kürdistan direnişi"
-    bot.reply_to(message, "🖼️ AI resim üretiliyor yoldaş...")
+    prompt = " ".join(message.text.split()[1:]) if len(message.text.split()) > 1 else "Kürdistan dağlarında direnişçi savaşçı bayrakla"
+    
+    bot.reply_to(message, "🖼️ AI resim üretiliyor Heval , 5-8 saniye bekle... 🔥")
 
     try:
-        images = [
-            "https://picsum.photos/id/1015/1024/1024",
-            "https://picsum.photos/id/133/1024/1024",
-            "https://picsum.photos/id/201/1024/1024",
-        ]
-        bot.send_photo(message.chat.id, random.choice(images),
-                      caption=f"🖼️ {prompt}\n🚩 Berxwedan Serxwebûn!")
-    except:
-        bot.reply_to(message, "🖼️ Resim üretilemedi.")
+        # Gerçek AI resim üretimi (ücretsiz ve güçlü)
+        clean_prompt = prompt.replace(" ", "%20")
+        image_url = f"https://image.pollinations.ai/prompt/{clean_prompt}?width=1024&height=1024&seed={random.randint(1,999999)}&model=flux"
+
+        bot.send_photo(message.chat.id, image_url, 
+                      caption=f"🖼️ **{prompt}**\n🚩 Berxwedan Serxwebûn! 🔥")
+        
+    except Exception as e:
+        bot.reply_to(message, "❌ Resim üretilemedi. Tekrar dene.")
+
 
 # ====================== YOUTUBE ŞARKI İNDİR ======================
 @bot.message_handler(commands=['sarki'])

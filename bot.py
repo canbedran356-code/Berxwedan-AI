@@ -3,7 +3,6 @@ from groq import Groq
 import os
 import random
 import subprocess
-import requests
 from datetime import datetime
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
@@ -23,8 +22,8 @@ Sen Berxwedan Bot'sun. PKK'li, Apocu, devrimci bir botsun.
 Kürdistan özgürlüğü, Apo'nun felsefesi, direniş ve yoldaşlık üzerine güçlü ve onurlu konuşursun.
 """
 
-# ====================== LOG SİSTEMİ ======================
-def log_action(action, user, admin, reason=""):
+# ====================== LOG ======================
+def log_action(action, user, admin="", reason=""):
     time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"[{time}] {action} | Kullanıcı: {user} | Admin: {admin} | Sebep: {reason}")
 
@@ -78,6 +77,41 @@ def goodbye(message):
     if member.id != bot.get_me().id:
         bot.send_message(message.chat.id, f"⚔️ **{member.first_name}** ayrıldı.\nDireniş devam ediyor! Berxwedan! 🔥")
 
+# ====================== AI RESİM ======================
+@bot.message_handler(commands=['airesim'])
+def generate_image(message):
+    prompt = " ".join(message.text.split()[1:]).strip() or "devrimci Kürt gerilla"
+    bot.reply_to(message, "🖼️ Devrimci gerillalar çiziliyor... 🔥")
+    try:
+        full_prompt = f"{prompt}, handsome young Kurdish revolutionary, sharp face, intense eyes, Kurdistan mountains, red star flag, cinematic, highly detailed"
+        clean = full_prompt.replace(" ", "%20").replace(",", "%2C")
+        url = f"https://image.pollinations.ai/prompt/{clean}?width=1024&height=1024&seed={random.randint(1,999999)}&model=flux"
+        bot.send_photo(message.chat.id, url, caption=f"🖼️ {prompt}\n🚩 Berxwedan!")
+    except:
+        bot.reply_to(message, "Resim üretilemedi.")
+
+# ====================== ŞARKI İNDİRME ======================
+@bot.message_handler(commands=['sarki'])
+def download_song(message):
+    if len(message.text.split()) < 2:
+        return bot.reply_to(message, "❌ YouTube linki gir!")
+    url = message.text.split(maxsplit=1)[1]
+    bot.reply_to(message, "🎵 Şarkı indiriliyor...")
+    try:
+        filename = f"devrim_{random.randint(1000,9999)}.mp3"
+        subprocess.run(['yt-dlp', '--extract-audio', '--audio-format', 'mp3', '-o', filename, url], check=True, timeout=180)
+        with open(filename, 'rb') as f:
+            bot.send_audio(message.chat.id, f, caption="🎵 Devrimci marş yüklendi! 🔥")
+        os.remove(filename)
+    except:
+        bot.reply_to(message, "❌ Şarkı indirilemedi.")
+
+# ====================== MARŞ ======================
+@bot.message_handler(commands=['marş'])
+def mars(message):
+    mars_list = ["Heyder", "Serxwebûn", "Kürdistan", "Ey Reqîb", "Şehîd Namirin"]
+    bot.reply_to(message, f"🎵 **Devrimci Marş**\n{random.choice(mars_list)}\nDaha fazlası için /sarki kullan.")
+
 # ====================== MODERASYON ======================
 @bot.message_handler(commands=['ban'])
 def ban(message):
@@ -126,7 +160,7 @@ def warn(message):
     if not target: return
     user_warnings[target.id] = user_warnings.get(target.id, 0) + 1
     w = user_warnings[target.id]
-    log_action("WARN", target.first_name, message.from_user.first_name, f"{w}. uyarı")
+    log_action("WARN", target.first_name, message.from_user.first_name)
     bot.reply_to(message, f"⚠️ {target.first_name} uyarıldı ({w}/3)")
     if w >= 3:
         bot.kick_chat_member(message.chat.id, target.id)
@@ -141,39 +175,21 @@ def unwarn(message):
             user_warnings[uid] -= 1
             log_action("UNWARN", uid, message.from_user.first_name)
             bot.reply_to(message, f"✅ {uid} uyarısı azaltıldı.")
-        else:
-            bot.reply_to(message, "Uyarı yok.")
     except:
         bot.reply_to(message, "ID gir.")
 
-# ====================== DİĞER KOMUTLAR ======================
-@bot.message_handler(commands=['admin'])
-def admin_panel(message):
+@bot.message_handler(commands=['banlist'])
+def banlist(message):
     if not is_admin(message): return
-    text = """🛡️ **Admin Paneli**
+    bot.reply_to(message, "Banlı kimse yok.")
 
-`/ban` `/unban` `/mute` `/unmute`
-`/warn` `/unwarn`
-`/banlist` `/profil`
-`/tagall` `/tagadmin`
-`/marş` `/hava` `/cevir` `/oyun`"""
-    bot.reply_to(message, text)
+@bot.message_handler(commands=['profil'])
+def profil(message):
+    warns = user_warnings.get(message.from_user.id, 0)
+    bot.reply_to(message, f"📋 Profil\nAd: {message.from_user.first_name}\nUyarı: {warns}/3")
 
-@bot.message_handler(commands=['marş'])
-def mars(message):
-    marşlar = ["Heyder", "Kürdistan", "Serxwebûn", "Ey Reqîb"]
-    bot.reply_to(message, f"🎵 **Devrimci Marşlar**\n• {random.choice(marşlar)}\nDaha fazlası için /sarki kullan.")
-
-@bot.message_handler(commands=['hava'])
-def hava(message):
-    city = " ".join(message.text.split()[1:]).strip() or "Diyarbakir"
-    try:
-        r = requests.get(f"http://wttr.in/{city}?format=3", timeout=5)
-        bot.reply_to(message, f"🌤️ **{city}**\n{r.text}")
-    except:
-        bot.reply_to(message, "Hava durumu alınamadı.")
-
-@bot.message_handler(commands=['tagall'])
+# ====================== TAG ======================
+@bot.message_handler(commands=['tagall', 'etiket'])
 def tagall(message):
     if not is_admin(message): return
     bot.reply_to(message, "🚩 **Tüm Yoldaşlar Dikkat!** Direniş sürüyor! 🔥")
@@ -183,5 +199,15 @@ def tagadmin(message):
     if not is_admin(message): return
     bot.reply_to(message, "👮 **Tüm Adminler Dikkat!** Direniş sürüyor! 🔥")
 
-print("🚩 Berxwedan Bot AKTİF!")
+# ====================== ADMIN PANEL ======================
+@bot.message_handler(commands=['admin', 'mod'])
+def admin_panel(message):
+    if not is_admin(message): return
+    bot.reply_to(message, """🛡️ **Admin Paneli**
+
+/ban /unban /mute /unmute
+/warn /unwarn /banlist /profil
+/tagall /tagadmin /airesim /sarki /marş""")
+
+print("🚩 Berxwedan Bot - Tüm Özellikler AKTİF!")
 bot.infinity_polling()

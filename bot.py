@@ -65,23 +65,38 @@ def get_target(message):
         except:
             return None
     return None
-# ====================== GERÇEK AI RESİM (Pollinations.ai) ======================
+# ====================== GÜÇLÜ DEVRİMCİ AI RESİM ======================
 @bot.message_handler(commands=['airesim'])
 def generate_image(message):
-    prompt = " ".join(message.text.split()[1:]) if len(message.text.split()) > 1 else "Kürdistan dağlarında direnişçi savaşçı bayrakla"
-    
-    bot.reply_to(message, "🖼️ AI resim üretiliyor Heval , 5-8 saniye bekle... 🔥")
+    user_prompt = " ".join(message.text.split()[1:]) 
+    if not user_prompt:
+        user_prompt = "Kürdistan dağlarında direnişçi gerilla"
+
+    bot.reply_to(message, "🖼️ Devrimci AI resim üretiliyor yoldaş... 🔥")
 
     try:
-        # Gerçek AI resim üretimi (ücretsiz ve güçlü)
-        clean_prompt = prompt.replace(" ", "%20")
-        image_url = f"https://image.pollinations.ai/prompt/{clean_prompt}?width=1024&height=1024&seed={random.randint(1,999999)}&model=flux"
-
-        bot.send_photo(message.chat.id, image_url, 
-                      caption=f"🖼️ **{prompt}**\n🚩 Berxwedan Serxwebûn! 🔥")
+        # Güçlü devrimci prompt engineering
+        enhanced_prompt = (
+            f"{user_prompt}, Kurdish freedom fighter, PKK style, Apo philosophy, "
+            "revolutionary spirit, mountains of Kurdistan, red flag with star, "
+            "guerrilla fighter, resistance, determination, dramatic lighting, "
+            "cinematic, epic atmosphere, highly detailed, 4k, realistic"
+        )
         
-    except Exception as e:
-        bot.reply_to(message, "❌ Resim üretilemedi. Tekrar dene.")
+        clean_prompt = enhanced_prompt.replace(" ", "%20")
+        # Random seed ile her seferinde farklı çıksın
+        seed = random.randint(1, 999999)
+        
+        image_url = f"https://image.pollinations.ai/prompt/{clean_prompt}?width=1024&height=1024&seed={seed}&model=flux&safe=false"
+
+        bot.send_photo(
+            message.chat.id, 
+            image_url, 
+            caption=f"🖼️ **{user_prompt}**\n🚩 Berxwedan Serxwebûn! 🔥"
+        )
+        
+    except Exception:
+        bot.reply_to(message, "❌ Şu anda resim üretilemedi. Tekrar deneyin yoldaş.")
 
 
 # ====================== YOUTUBE ŞARKI İNDİR ======================

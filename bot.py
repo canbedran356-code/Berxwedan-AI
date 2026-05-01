@@ -65,40 +65,39 @@ def get_target(message):
         except:
             return None
     return None
-# ====================== GÜÇLÜ DEVRİMCİ AI RESİM ======================
+# ====================== GÜÇLÜ DEVRİMCİ AI RESİM (Optimize) ======================
 @bot.message_handler(commands=['airesim'])
 def generate_image(message):
-    user_prompt = " ".join(message.text.split()[1:]) 
-    if not user_prompt:
-        user_prompt = "Kürdistan dağlarında direnişçi gerilla"
+    user_input = " ".join(message.text.split()[1:]).strip()
+    if not user_input:
+        user_input = "Kürdistan dağlarında gerilla"
 
-    bot.reply_to(message, "🖼️ Devrimci AI resim üretiliyor yoldaş... 🔥")
+    bot.reply_to(message, "🖼️ Devrimci AI resim hazırlanıyor yoldaş... (biraz bekle) 🔥")
 
     try:
-        # Güçlü devrimci prompt engineering
-        enhanced_prompt = (
-            f"{user_prompt}, Kurdish freedom fighter, PKK style, Apo philosophy, "
-            "revolutionary spirit, mountains of Kurdistan, red flag with star, "
-            "guerrilla fighter, resistance, determination, dramatic lighting, "
-            "cinematic, epic atmosphere, highly detailed, 4k, realistic"
+        # Çok daha güçlü ve zorlayıcı prompt
+        base_prompt = (
+            f"{user_input}, epic revolutionary scene, Kurdish PKK guerrilla fighter, "
+            "Abdullah Öcalan ideology, red star flag, mountains of Kurdistan, "
+            "armed resistance, freedom fighter, determined expression, "
+            "dramatic cinematic lighting, volumetric fog, golden hour, "
+            "highly detailed, realistic, 8k, national geographic style, "
+            "revolutionary atmosphere, powerful composition"
         )
-        
-        clean_prompt = enhanced_prompt.replace(" ", "%20")
-        # Random seed ile her seferinde farklı çıksın
-        seed = random.randint(1, 999999)
-        
-        image_url = f"https://image.pollinations.ai/prompt/{clean_prompt}?width=1024&height=1024&seed={seed}&model=flux&safe=false"
+
+        clean_prompt = base_prompt.replace(" ", "%20").replace(",", "%2C")
+        seed = random.randint(100000, 999999)
+
+        image_url = f"https://image.pollinations.ai/prompt/{clean_prompt}?width=1024&height=1024&seed={seed}&model=flux&safe=false&enhance=true"
 
         bot.send_photo(
             message.chat.id, 
-            image_url, 
-            caption=f"🖼️ **{user_prompt}**\n🚩 Berxwedan Serxwebûn! 🔥"
+            image_url,
+            caption=f"🖼️ **{user_input}**\n🚩 Berxwedan Serxwebûn! 🔥"
         )
-        
-    except Exception:
-        bot.reply_to(message, "❌ Şu anda resim üretilemedi. Tekrar deneyin yoldaş.")
 
-
+    except Exception as e:
+        bot.reply_to(message, "❌ Resim üretilemedi. Tekrar deneyin.")
 # ====================== YOUTUBE ŞARKI İNDİR ======================
 @bot.message_handler(commands=['sarki'])
 def download_song(message):

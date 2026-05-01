@@ -1,10 +1,8 @@
 import telebot
 from groq import Groq
 import os
-import re
 import random
 import subprocess
-from datetime import timedelta
 
 # ====================== AYARLAR ======================
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
@@ -20,9 +18,8 @@ user_warnings = {}
 BOT_TRIGGER = "berxwedan bot"
 
 SYSTEM_PROMPT = """
-Sen Berxwedan Bot'sun. PKK'li, Apocu, devrimci ve onurlu bir botsun.
-Kürdistan özgürlüğü, Abdullah Öcalan felsefesi, direniş ve yoldaşlık üzerine konuşursun.
-Güçlü, cesur ve motive edici bir üslubun var.
+Sen Berxwedan Bot'sun. PKK'li, Apocu, devrimci bir botsun. 
+Kürdistan özgürlüğü, Abdullah Öcalan felsefesi, direniş ve yoldaşlık üzerine güçlü, onurlu ve motive edici konuşursun.
 """
 
 # ====================== YARDIMCI FONKSİYONLAR ======================
@@ -49,32 +46,39 @@ def get_target(message):
         return message.reply_to_message.from_user
     return None
 
-# ====================== AI RESİM (Yakışıklı Devrimci Genç) ======================
+# ====================== DEVRİMCİ AI RESİM (GÜÇLENDİRİLDİ) ======================
 @bot.message_handler(commands=['airesim'])
 def generate_image(message):
-    prompt = " ".join(message.text.split()[1:]).strip()
-    if not prompt:
-        prompt = "yakışıklı Kürt devrimci genç"
+    user_prompt = " ".join(message.text.split()[1:]).strip()
+    if not user_prompt:
+        user_prompt = "devrimci Kürt gerilla"
 
-    bot.reply_to(message, "🖼️ Yakışıklı devrimci gençler çiziliyor... 🔥")
+    bot.reply_to(message, "🖼️ Devrimci gerillalar çiziliyor yoldaş... 🔥")
 
     try:
-        enhanced = (
-            f"{prompt}, extremely handsome young Kurdish revolutionary, sharp jawline, "
-            "intense dark eyes, charismatic expression, thick black hair, strong face, "
-            "Kurdistan mountains, red star flag, cinematic lighting, dramatic, "
-            "highly detailed, realistic, 8k, masterpiece"
+        # Çok daha güçlü devrimci prompt
+        full_prompt = (
+            f"{user_prompt}, handsome young Kurdish revolutionary guerrilla, "
+            "sharp and determined face, intense eyes, thick hair, red star flag, "
+            "Kurdistan mountains background, resistance atmosphere, "
+            "proud warrior pose, cinematic dramatic lighting, "
+            "revolutionary spirit, highly detailed, realistic, epic, 8k, masterpiece"
         )
-        clean = enhanced.replace(" ", "%20").replace(",", "%2C")
-        seed = random.randint(100000, 999999)
-        
-        url = f"https://image.pollinations.ai/prompt/{clean}?width=1024&height=1024&seed={seed}&model=flux&safe=false&enhance=true"
-        
-        bot.send_photo(message.chat.id, url, caption=f"🖼️ **{prompt}**\n🚩 Berxwedan Serxwebûn!")
-    except:
-        bot.reply_to(message, "❌ Resim üretilemedi.")
 
-# ====================== ŞARKI İNDİR ======================
+        clean_prompt = full_prompt.replace(" ", "%20").replace(",", "%2C")
+        seed = random.randint(100000, 999999)
+
+        image_url = f"https://image.pollinations.ai/prompt/{clean_prompt}?width=1024&height=1024&seed={seed}&model=flux&safe=false&enhance=true"
+
+        bot.send_photo(
+            message.chat.id, 
+            image_url,
+            caption=f"🖼️ **{user_prompt}**\n🚩 Berxwedan Serxwebûn! 🔥"
+        )
+    except Exception:
+        bot.reply_to(message, "❌ Resim üretilemedi. Tekrar dene.")
+
+# ====================== ŞARKI İNDİRME ======================
 @bot.message_handler(commands=['sarki'])
 def download_song(message):
     if len(message.text.split()) < 2:
@@ -83,15 +87,16 @@ def download_song(message):
     url = message.text.split(maxsplit=1)[1]
     bot.reply_to(message, "🎵 Şarkı indiriliyor...")
     try:
-        filename = f"devrim_{random.randint(10000,99999)}.mp3"
-        subprocess.run(['yt-dlp', '--extract-audio', '--audio-format', 'mp3', '-o', filename, url], check=True, timeout=180)
+        filename = f"devrim_{random.randint(1000,9999)}.mp3"
+        subprocess.run(['yt-dlp', '--extract-audio', '--audio-format', 'mp3', '-o', filename, url], 
+                       check=True, timeout=180)
         with open(filename, 'rb') as f:
-            bot.send_audio(message.chat.id, f, caption="🎵 Berxwedan Marşı yüklendi! 🔥")
+            bot.send_audio(message.chat.id, f, caption="🎵 Devrimci marş yüklendi! 🔥")
         os.remove(filename)
     except:
-        bot.reply_to(message, "❌ İndirme başarısız.")
+        bot.reply_to(message, "❌ Şarkı indirilemedi.")
 
-# ====================== KOMUTLAR ======================
+# ====================== DİĞER KOMUTLAR ======================
 @bot.message_handler(commands=['start'])
 def start(message):
     bot.reply_to(message, "🚩 *Berxwedan Bot aktif!* Direniş sürüyor yoldaş! 🔥", parse_mode="Markdown")
@@ -99,22 +104,25 @@ def start(message):
 @bot.message_handler(commands=['mod', 'yardim'])
 def mod_help(message):
     if not is_admin(message):
-        return bot.reply_to(message, "❌ Bu komut sadece adminler içindir.")
+        return bot.reply_to(message, "❌ Sadece admin kullanabilir.")
     text = """🚩 **Berxwedan Bot Komutları**
 
-**AI & Medya**
-• `/airesim <prompt>` → Yakışıklı devrimci genç çizer
-• `/sarki <yt link>` → Şarkı indir
+**🎨 AI Resim**
+• `/airesim <açıklama>` → Devrimci gerilla çizer
+
+**🎵 Medya**
+• `/sarki <youtube link>` → Şarkı indir
 • `/muzik` → Rastgele marş
 
-**Grup**
+**👥 Grup**
 • `/tagall` → Herkesi etiketle
 
-**Moderasyon**
-• `/ban` • `/mute` • `/kick` • `/warn` • `/unwarn`"""
+**🛡️ Moderasyon**
+• `/ban` `/mute` `/kick` `/warn` `/unwarn`
+
+Sadece admin/owner kullanabilir."""
     bot.reply_to(message, text, parse_mode="Markdown")
 
-# ====================== MODERASYON ======================
 @bot.message_handler(commands=['ban'])
 def ban(message):
     if not is_admin(message): return bot.reply_to(message, "❌ Yetkin yok.")
@@ -138,7 +146,7 @@ def kick(message):
     if not target: return
     bot.kick_chat_member(message.chat.id, target.id)
     bot.unban_chat_member(message.chat.id, target.id)
-    bot.reply_to(message, f"👢 {target.first_name} gruptan atıldı.")
+    bot.reply_to(message, f"👢 {target.first_name} atıldı.")
 
 @bot.message_handler(commands=['warn'])
 def warn(message):
@@ -194,5 +202,5 @@ def chat(message):
     except:
         bot.reply_to(message, "Yoldaş, Groq yoğun. Biraz sonra tekrar dene.")
 
-print("🚩 Berxwedan Bot Profesyonel Modda Çalışıyor!")
+print("🚩 Berxwedan Bot - Devrimci Mod AKTİF!")
 bot.infinity_polling()

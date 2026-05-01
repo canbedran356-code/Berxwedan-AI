@@ -87,17 +87,40 @@ def mod_help(message):
     bot.reply_to(message, "Komutlar için /mod yaz.")
 
 # AI Resim (önceki iyi hali)
+# ====================== YAKIŞIKLI KÜRT DEVRİMCİ GENÇLER ======================
 @bot.message_handler(commands=['airesim'])
 def generate_image(message):
-    user_input = " ".join(message.text.split()[1:]).strip() or "Kürdistan dağları"
-    bot.reply_to(message, "🖼️ Resim üretiliyor...")
+    user_input = " ".join(message.text.split()[1:]).strip()
+    
+    if not user_input:
+        user_input = "yakışıklı Kürt devrimci genç"
+
+    bot.reply_to(message, "🖼️ Yakışıklı devrimci gençler çiziliyor yoldaş... 🔥")
+
     try:
-        enhanced = f"{user_input}, Kurdish mountains, realistic Kurdish people, traditional clothing, proud, cinematic"
-        clean = enhanced.replace(" ", "%20").replace(",", "%2C")
-        url = f"https://image.pollinations.ai/prompt/{clean}?width=1024&height=1024&seed={random.randint(1,999999)}&model=flux"
-        bot.send_photo(message.chat.id, url, caption=f"🖼️ {user_input}\n🚩 Berxwedan!")
-    except:
-        bot.reply_to(message, "Resim üretilemedi.")
+        # Güçlü ve odaklanmış prompt
+        base = (
+            f"{user_input}, very handsome young Kurdish man, sharp jawline, "
+            "intense dark eyes, charismatic revolutionary expression, "
+            "thick black hair, traditional Kurdish elements, "
+            "Kurdistan mountains background, red star flag, "
+            "strong and proud posture, cinematic lighting, dramatic atmosphere, "
+            "highly detailed face, realistic, 8k, national geographic style"
+        )
+
+        clean_prompt = base.replace(" ", "%20").replace(",", "%2C")
+        seed = random.randint(100000, 999999)
+
+        image_url = f"https://image.pollinations.ai/prompt/{clean_prompt}?width=1024&height=1024&seed={seed}&model=flux&safe=false&enhance=true"
+
+        bot.send_photo(
+            message.chat.id, 
+            image_url,
+            caption=f"🖼️ **{user_input}**\n🚩 Berxwedan Serxwebûn! 🔥"
+        )
+        
+    except Exception:
+        bot.reply_to(message, "❌ Resim üretilemedi. Tekrar dene.")
 
 print("🚩 Berxwedan Bot çalışıyor...")
 bot.infinity_polling()

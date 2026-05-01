@@ -3,8 +3,8 @@ from groq import Groq
 import os
 import random
 import subprocess
+import requests
 
-# ====================== AYARLAR ======================
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
@@ -14,6 +14,7 @@ client = Groq(api_key=GROQ_API_KEY)
 OWNER_ID = 8739789412
 user_histories = {}
 user_warnings = {}
+banned_users = []
 
 BOT_TRIGGER = "berxwedan bot"
 
@@ -43,85 +44,83 @@ def should_reply(message):
 def chat(message):
     if not should_reply(message):
         return
-
-    user_id = message.chat.id
-    if user_id not in user_histories:
-        user_histories[user_id] = []
-
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}] + user_histories[user_id]
-    messages.append({"role": "user", "content": message.text})
-
     try:
         completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
-            messages=messages,
+            messages=[{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": message.text}],
             temperature=0.85,
-            max_tokens=900,
+            max_tokens=800,
         )
-        reply = completion.choices[0].message.content
-        bot.reply_to(message, reply)
-
-        user_histories[user_id].append({"role": "user", "content": message.text})
-        user_histories[user_id].append({"role": "assistant", "content": reply})
-        
-        if len(user_histories[user_id]) > 20:
-            user_histories[user_id] = user_histories[user_id][-20:]
+        bot.reply_to(message, completion.choices[0].message.content)
     except:
         bot.reply_to(message, "Yoldaş, AI yoğun. Biraz sonra tekrar dene.")
 
-# ====================== AI RESİM ======================
-@bot.message_handler(commands=['airesim'])
-def generate_image(message):
-    prompt = " ".join(message.text.split()[1:]).strip() or "devrimci Kürt gerilla"
-    bot.reply_to(message, "🖼️ Devrimci gerillalar çiziliyor... 🔥")
+# ====================== PROFIL & UYARI ======================
+@bot.message_handler(commands=['profil'])
+def profil(message):
+    uid = message.from_user.id
+    warns = user_warnings.get(uid, 0)
+    bot.reply_to(message, f"📋 **Profilin**\nAd: {message.from_user.first_name}\nUyarı: {warns}/3")
 
-    try:
-        full_prompt = f"{prompt}, handsome young Kurdish revolutionary, sharp face, intense eyes, Kurdistan mountains, red star flag, cinematic, highly detailed"
-        clean = full_prompt.replace(" ", "%20").replace(",", "%2C")
-        url = f"https://image.pollinations.ai/prompt/{clean}?width=1024&height=1024&seed={random.randint(1,999999)}&model=flux"
-        bot.send_photo(message.chat.id, url, caption=f"🖼️ {prompt}\n🚩 Berxwedan!")
-    except:
-        bot.reply_to(message, "Resim üretilemedi.")
+@bot.message_handler(commands=['warn'])
+def warn(message):
+    if not is_admin(message): return
+    target = message.reply_to_message.from_user if message.reply_to_message else None
+    if not target: return bot.reply_to(message, "Reply ver.")
+    user_warnings[target.id] = user_warnings.get(target.id, 0) + 1
+    w = user_warnings[target.id]
+    bot.reply_to(message, f"⚠️ {target.first_name} uyarıldı ({w}/3)")
+    if w >= 3:
+        bot.kick_chat_member(message.chat.id, target.id)
+        bot.reply_to(message, f"🚫 {target.first_name} banlandı!")
 
-# ====================== ŞARKI İNDİRME ======================
-@bot.message_handler(commands=['sarki'])
-def download_song(message):
-    if len(message.text.split()) < 2:
-        return bot.reply_to(message, "❌ YouTube linki gir!")
-    url = message.text.split(maxsplit=1)[1]
-    bot.reply_to(message, "🎵 Şarkı indiriliyor...")
-    try:
-        filename = f"devrim_{random.randint(1000,9999)}.mp3"
-        subprocess.run(['yt-dlp', '--extract-audio', '--audio-format', 'mp3', '-o', filename, url], check=True, timeout=180)
-        with open(filename, 'rb') as f:
-            bot.send_audio(message.chat.id, f, caption="🎵 Devrimci marş yüklendi! 🔥")
-        os.remove(filename)
-    except:
-        bot.reply_to(message, "❌ Şarkı indirilemedi.")
+# ====================== BAN LİSTESİ ======================
+@bot.message_handler(commands=['banlist'])
+def banlist(message):
+    if not is_admin(message): return
+    if not banned_users:
+        bot.reply_to(message, "Banlı kimse yok.")
+    else:
+        bot.reply_to(message, "🚫 Banlı Kullanıcılar:\n" + "\n".join(str(uid) for uid in banned_users))
 
-# ====================== KOMUTLAR ======================
-@bot.message_handler(commands=['start'])
-def start(message):
-    bot.reply_to(message, "🚩 *Berxwedan Bot aktif!* Direniş sürüyor yoldaş! 🔥", parse_mode="Markdown")
-
-@bot.message_handler(commands=['mod', 'yardim'])
-def mod_help(message):
-    text = """🚩 **Berxwedan Bot Komutları**
-
-• `/airesim <prompt>` → Devrimci resim
-• `/sarki <youtube link>` → Şarkı indir
-• `/muzik` → Rastgele marş
-• `/tagall` → Grubu etiketle"""
-    bot.reply_to(message, text, parse_mode="Markdown")
-
-@bot.message_handler(commands=['muzik'])
-def send_music(message):
-    bot.send_audio(message.chat.id, "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", 
-                  caption="🎵 Devrimci marşlar yoldaş! 🔥")
-
+# ====================== TAG KOMUTLARI ======================
 @bot.message_handler(commands=['tagall', 'etiket'])
 def tagall(message):
+    if not is_admin(message): return
     bot.reply_to(message, "🚩 **Tüm Yoldaşlar Dikkat!** Direniş sürüyor! 🔥")
+
+@bot.message_handler(commands=['tagadmin'])
+def tagadmin(message):
+    if not is_admin(message): return
+    bot.reply_to(message, "👮 **Tüm Adminler Dikkat!** Direniş sürüyor! 🔥")
+
+# ====================== HAVA DURUMU ======================
+@bot.message_handler(commands=['hava'])
+def hava(message):
+    city = " ".join(message.text.split()[1:]).strip() or "Diyarbakir"
+    try:
+        # Örnek açık hava API (ücretsiz)
+        url = f"http://wttr.in/{city}?format=3"
+        r = requests.get(url, timeout=5)
+        bot.reply_to(message, f"🌤️ **{city}**\n{r.text}")
+    except:
+        bot.reply_to(message, "Hava durumu şu anda alınamadı.")
+
+# ====================== DİĞER ======================
+@bot.message_handler(commands=['start'])
+def start(message):
+    bot.reply_to(message, "🚩 Berxwedan Bot aktif! Direniş sürüyor yoldaş! 🔥")
+
+@bot.message_handler(commands=['mod'])
+def mod_help(message):
+    bot.reply_to(message, """🚩 **Komutlar:**
+• /airesim → Resim
+• /sarki → Şarkı
+• /profil → Profil
+• /tagall → Etiket
+• /tagadmin → Admin etiket
+• /banlist → Ban listesi
+• /hava <şehir> → Hava durumu""")
 
 print("🚩 Berxwedan Bot AKTİF!")
 bot.infinity_polling()

@@ -4,9 +4,15 @@ import os
 import random
 import subprocess
 import re
+import logging
 from datetime import datetime, timedelta
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
+# ====================== LOGGING ======================
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+# ====================== AYARLAR ======================
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
@@ -15,22 +21,14 @@ client = Groq(api_key=GROQ_API_KEY)
 
 OWNER_ID = 8739789412
 user_warnings = {}
-user_notes = {}
 banned_users = set()
 
 BOT_TRIGGER = "berxwedan bot"
 
 SYSTEM_PROMPT = """
-Sen Berxwedan Bot'sun. PKK'li, Apocu, devrimci bir botsun. 
-Barzani düşmanısın. Kürdistan özgürlüğü ve Apo'nun felsefesi üzerine güçlü ve onurlu konuşursun.
+Sen Berxwedan Bot'sun. PKK'li, Apocu, devrimci bir botsun.
+Barzani düşmanısın. Kürdistan özgürlüğü ve Apo'nun felsefesi üzerine güçlü, onurlu ve kısa cevaplar ver.
 """
-
-# ====================== LOG SİSTEMİ ======================
-def log_action(action, target, admin, reason="", duration=None):
-    time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    dur = f" | Süre: {duration}" if duration else ""
-    log_text = f"[{time}] {action} | Hedef: {target} | Admin: {admin}{dur} | Sebep: {reason}"
-    print(log_text)
 
 # ====================== YARDIMCI FONKSİYONLAR ======================
 def is_owner(uid):
@@ -45,31 +43,16 @@ def is_admin(message):
     except:
         return False
 
-def parse_time(time_str):
-    if not time_str:
-        return None
-    match = re.match(r'(\d+)([mhd])', time_str.lower())
-    if not match:
-        return None
-    num, unit = match.groups()
-    num = int(num)
-    if unit == 'm': return timedelta(minutes=num)
-    if unit == 'h': return timedelta(hours=num)
-    if unit == 'd': return timedelta(days=num)
-    return None
-
 def get_target(message):
     if message.reply_to_message:
         return message.reply_to_message.from_user
     text = message.text or ""
-    # @username
     if "@" in text:
         try:
             username = text.split("@")[1].split()[0]
             return bot.get_chat(username)
         except:
             pass
-    # ID
     parts = text.split()
     if len(parts) > 1 and parts[1].isdigit():
         try:
@@ -77,6 +60,11 @@ def get_target(message):
         except:
             pass
     return None
+
+def log_action(action, target, admin, reason="", duration=None):
+    time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    dur = f" | Süre: {duration}" if duration else ""
+    logger.info(f"[{time}] {action} | Hedef: {target} | Admin: {admin}{dur} | Sebep: {reason}")
 
 # ====================== BUTONLU ADMIN PANEL ======================
 @bot.message_handler(commands=['admin'])
@@ -96,17 +84,22 @@ def admin_panel(message):
     )
     bot.reply_to(message, "🛡️ **Berxwedan Admin Paneli**\nKomutları reply veya @kullanıcıadı ile kullan.", reply_markup=markup)
 
+@bot.callback_query_handler(func=lambda call: True)
+def callback_handler(call):
+    if call.from_user.id != OWNER_ID:
+        return
+    bot.answer_callback_query(call.id)
+    bot.send_message(call.message.chat.id, f"Komut aktif: /{call.data}\nMesaja reply ver veya @kullanıcıadı yaz.")
+
 # ====================== MODERASYON ======================
 @bot.message_handler(commands=['ban'])
 def ban(message):
     if not is_owner(message.from_user.id): return
     target = get_target(message)
     if not target: return bot.reply_to(message, "Reply ver, @kullanıcıadı veya ID gir.")
-    time_str = message.text.split(maxsplit=2)[1] if len(message.text.split()) > 1 else None
-    duration = parse_time(time_str)
     bot.kick_chat_member(message.chat.id, target.id)
     banned_users.add(target.id)
-    log_action("BAN", target.first_name or target.id, message.from_user.first_name, duration=duration)
+    log_action("BAN", target.first_name or target.id, message.from_user.first_name)
     bot.reply_to(message, f"🚫 {target.first_name or target.id} banlandı.")
 
 @bot.message_handler(commands=['unban'])
@@ -192,5 +185,5 @@ def chat(message):
         except:
             bot.reply_to(message, "Yoldaş, AI yoğun.")
 
-print("🚩 Berxwedan Bot - Genişletilmiş Moderasyon AKTİF!")
+print("🚩 Berxwedan Bot - Süper Versiyon AKTİF!")
 bot.infinity_polling()

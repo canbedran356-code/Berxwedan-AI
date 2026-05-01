@@ -3,6 +3,7 @@ from groq import Groq
 import os
 import random
 import subprocess
+import requests
 from datetime import datetime
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
@@ -25,9 +26,7 @@ Kürdistan özgürlüğü, Apo'nun felsefesi, direniş ve yoldaşlık üzerine g
 # ====================== LOG SİSTEMİ ======================
 def log_action(action, user, admin, reason=""):
     time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    log_text = f"[{time}] {action} | Kullanıcı: {user} | Admin: {admin} | Sebep: {reason}"
-    print(log_text)
-    # İstersen gruba da log atabiliriz: bot.send_message(chat_id, log_text)
+    print(f"[{time}] {action} | Kullanıcı: {user} | Admin: {admin} | Sebep: {reason}")
 
 # ====================== YARDIMCI ======================
 def is_admin(message):
@@ -48,12 +47,6 @@ def should_reply(message):
 def get_target(message):
     if message.reply_to_message:
         return message.reply_to_message.from_user
-    elif len(message.text.split()) > 1:
-        try:
-            uid = int(message.text.split()[1])
-            return bot.get_chat_member(message.chat.id, uid).user
-        except:
-            return None
     return None
 
 # ====================== AI SOHBET ======================
@@ -72,32 +65,28 @@ def chat(message):
     except:
         bot.reply_to(message, "Yoldaş, AI yoğun. Biraz sonra tekrar dene.")
 
-# ====================== ADMIN PANEL ======================
-@bot.message_handler(commands=['admin'])
-def admin_panel(message):
-    if not is_admin(message):
-        return bot.reply_to(message, "❌ Sadece admin kullanabilir.")
-    text = """🛡️ **Berxwedan Admin Paneli**
+# ====================== HOŞGELDİN & GÜLE GÜLE ======================
+@bot.message_handler(content_types=['new_chat_members'])
+def welcome(message):
+    for member in message.new_chat_members:
+        if member.id != bot.get_me().id:
+            bot.send_message(message.chat.id, f"🌟 Hoş geldin **{member.first_name}**!\nDevrimci saflara katıldın. Berxwedan Serxwebûn! 🚩")
 
-`/ban <reply>` → Banla
-`/unban <ID>` → Ban kaldır
-`/mute <reply>` → Sustur
-`/unmute <ID>` → Susturmayı kaldır
-`/warn <reply>` → Uyarı ver
-`/unwarn <ID>` → Uyarı kaldır
-`/banlist` → Ban listesi
-`/profil` → Profil"""
-    bot.reply_to(message, text, parse_mode="Markdown")
+@bot.message_handler(content_types=['left_chat_member'])
+def goodbye(message):
+    member = message.left_chat_member
+    if member.id != bot.get_me().id:
+        bot.send_message(message.chat.id, f"⚔️ **{member.first_name}** ayrıldı.\nDireniş devam ediyor! Berxwedan! 🔥")
 
 # ====================== MODERASYON ======================
 @bot.message_handler(commands=['ban'])
 def ban(message):
-    if not is_admin(message): return bot.reply_to(message, "❌ Yetkin yok.")
+    if not is_admin(message): return
     target = get_target(message)
     if not target: return bot.reply_to(message, "Reply ver.")
     bot.kick_chat_member(message.chat.id, target.id)
     log_action("BAN", target.first_name, message.from_user.first_name)
-    bot.reply_to(message, f"🚫 **{target.first_name}** banlandı.")
+    bot.reply_to(message, f"🚫 {target.first_name} banlandı.")
 
 @bot.message_handler(commands=['unban'])
 def unban(message):
@@ -117,7 +106,7 @@ def mute(message):
     if not target: return
     bot.restrict_chat_member(message.chat.id, target.id, can_send_messages=False)
     log_action("MUTE", target.first_name, message.from_user.first_name)
-    bot.reply_to(message, f"🔇 **{target.first_name}** susturuldu.")
+    bot.reply_to(message, f"🔇 {target.first_name} susturuldu.")
 
 @bot.message_handler(commands=['unmute'])
 def unmute(message):
@@ -138,7 +127,7 @@ def warn(message):
     user_warnings[target.id] = user_warnings.get(target.id, 0) + 1
     w = user_warnings[target.id]
     log_action("WARN", target.first_name, message.from_user.first_name, f"{w}. uyarı")
-    bot.reply_to(message, f"⚠️ **{target.first_name}** uyarıldı ({w}/3)")
+    bot.reply_to(message, f"⚠️ {target.first_name} uyarıldı ({w}/3)")
     if w >= 3:
         bot.kick_chat_member(message.chat.id, target.id)
         bot.reply_to(message, f"🚫 {target.first_name} banlandı!")
@@ -150,25 +139,49 @@ def unwarn(message):
         uid = int(message.text.split()[1])
         if uid in user_warnings:
             user_warnings[uid] -= 1
-            if user_warnings[uid] <= 0:
-                del user_warnings[uid]
             log_action("UNWARN", uid, message.from_user.first_name)
             bot.reply_to(message, f"✅ {uid} uyarısı azaltıldı.")
         else:
-            bot.reply_to(message, "Bu kullanıcıda uyarı yok.")
+            bot.reply_to(message, "Uyarı yok.")
     except:
         bot.reply_to(message, "ID gir.")
 
-@bot.message_handler(commands=['banlist'])
-def banlist(message):
+# ====================== DİĞER KOMUTLAR ======================
+@bot.message_handler(commands=['admin'])
+def admin_panel(message):
     if not is_admin(message): return
-    bot.reply_to(message, "🚫 Banlı kimse yok." if not user_warnings else f"Banlılar: {list(user_warnings.keys())}")
+    text = """🛡️ **Admin Paneli**
 
-@bot.message_handler(commands=['profil'])
-def profil(message):
-    uid = message.from_user.id
-    warns = user_warnings.get(uid, 0)
-    bot.reply_to(message, f"📋 **Profilin**\nAd: {message.from_user.first_name}\nUyarı: {warns}/3")
+`/ban` `/unban` `/mute` `/unmute`
+`/warn` `/unwarn`
+`/banlist` `/profil`
+`/tagall` `/tagadmin`
+`/marş` `/hava` `/cevir` `/oyun`"""
+    bot.reply_to(message, text)
 
-print("🚩 Berxwedan Bot - Tam Moderasyon AKTİF!")
+@bot.message_handler(commands=['marş'])
+def mars(message):
+    marşlar = ["Heyder", "Kürdistan", "Serxwebûn", "Ey Reqîb"]
+    bot.reply_to(message, f"🎵 **Devrimci Marşlar**\n• {random.choice(marşlar)}\nDaha fazlası için /sarki kullan.")
+
+@bot.message_handler(commands=['hava'])
+def hava(message):
+    city = " ".join(message.text.split()[1:]).strip() or "Diyarbakir"
+    try:
+        r = requests.get(f"http://wttr.in/{city}?format=3", timeout=5)
+        bot.reply_to(message, f"🌤️ **{city}**\n{r.text}")
+    except:
+        bot.reply_to(message, "Hava durumu alınamadı.")
+
+@bot.message_handler(commands=['tagall'])
+def tagall(message):
+    if not is_admin(message): return
+    bot.reply_to(message, "🚩 **Tüm Yoldaşlar Dikkat!** Direniş sürüyor! 🔥")
+
+@bot.message_handler(commands=['tagadmin'])
+def tagadmin(message):
+    if not is_admin(message): return
+    bot.reply_to(message, "👮 **Tüm Adminler Dikkat!** Direniş sürüyor! 🔥")
+
+print("🚩 Berxwedan Bot AKTİF!")
 bot.infinity_polling()

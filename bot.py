@@ -73,23 +73,48 @@ def is_admin(message) -> bool:
         return False
 
 def get_target(message):
-    """Reply veya @username/ID ile hedef kullanıcıyı döndürür."""
+    """Reply veya @username/ID ile hedef kullanıcıyı döndürür.
+    Her zaman .id ve .first_name alanlarına sahip bir obje döner.
+    """
     if message.reply_to_message:
         return message.reply_to_message.from_user
-    text = message.text or ""
+
+    text  = message.text or ""
     parts = text.split()
-    if len(parts) > 1:
-        arg = parts[1]
-        if arg.startswith("@"):
-            try:
-                return bot.get_chat(arg).from_user if hasattr(bot.get_chat(arg), "from_user") else bot.get_chat(arg)
-            except Exception:
-                pass
-        elif arg.lstrip("-").isdigit():
-            try:
-                return bot.get_chat(int(arg))
-            except Exception:
-                pass
+    if len(parts) < 2:
+        return None
+
+    arg = parts[1]
+
+    # @kullanici_adi
+    if arg.startswith("@"):
+        try:
+            chat = bot.get_chat(arg)          # Chat objesi döner
+            # Chat objesini moderasyon komutlarının beklediği yapıya sar
+            chat.first_name = (
+                getattr(chat, "first_name", None)
+                or getattr(chat, "title", None)
+                or arg
+            )
+            return chat
+        except Exception as e:
+            logger.warning(f"@username çözümleme hatası ({arg}): {e}")
+            return None
+
+    # Sayısal ID
+    if arg.lstrip("-").isdigit():
+        try:
+            chat = bot.get_chat(int(arg))
+            chat.first_name = (
+                getattr(chat, "first_name", None)
+                or getattr(chat, "title", None)
+                or arg
+            )
+            return chat
+        except Exception as e:
+            logger.warning(f"ID çözümleme hatası ({arg}): {e}")
+            return None
+
     return None
 
 def mention(user) -> str:
@@ -211,14 +236,14 @@ def ban_cmd(message):
 def unban_cmd(message):
     if not is_owner(message.from_user.id): return
     update_stats("commands")
-    try:
-        uid = int((message.text or "").split()[1])
-        bot.unban_chat_member(message.chat.id, uid)
-        if uid in data["banned_users"]: data["banned_users"].remove(uid)
-        save_data(data)
-        bot.reply_to(message, f"✅ `{uid}` banı kaldırıldı.")
-    except Exception:
-        bot.reply_to(message, "Kullanım: `/unban <ID>`")
+    target = get_target(message)
+    if not target:
+        return bot.reply_to(message, "❗ Reply ver, @kullanıcıadı veya ID gir.")
+    bot.unban_chat_member(message.chat.id, target.id)
+    if target.id in data["banned_users"]:
+        data["banned_users"].remove(target.id)
+    save_data(data)
+    bot.reply_to(message, f"✅ {mention(target)} banı kaldırıldı.")
 
 @bot.message_handler(commands=["mute"])
 def mute_cmd(message):

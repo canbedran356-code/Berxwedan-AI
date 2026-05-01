@@ -1,3 +1,4 @@
 pyTelegramBotAPI
 groq
+google-genai
 yt-dlp
